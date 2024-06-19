@@ -49,7 +49,7 @@ const requestHandler: { [key: string]: (request: Request) => void } = {
 		console.log("filename:", filename);
 		try {
 			if (filename) {
-				const fileContent = fs.readFileSync(filename).toString();
+				const fileContent = fs.readFileSync(`/${filename}`).toString();
 				response(
 					_200,
 					`Content-Type: application/octet-stream\r\nContent-Length: ${fileContent}\r\n\r\n${fileContent}`,
