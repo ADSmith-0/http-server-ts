@@ -15,7 +15,11 @@ type Request = {
 };
 
 const _200 = "HTTP/1.1 200 OK\r\n";
+// const _400 = "HTTP/1.1 400 Error\r\n";
 const _404 = "HTTP/1.1 404 Not Found\r\n";
+
+const textPlain = (content: string): string =>
+	`Content-Type: text/plain\r\nContent-Length: ${content.length}\r\n\r\n${content}`;
 
 const requestHandler: { [key: string]: (request: Request) => void } = {
 	"/": ({ response }) => {
@@ -25,15 +29,18 @@ const requestHandler: { [key: string]: (request: Request) => void } = {
 		response(_200);
 	},
 	"/echo/?.*": ({ path, headers, response }) => {
-		console.log("headers:", headers);
 		const endpoint = path.split("/")[2];
 		if (endpoint) {
-			response(
-				_200,
-				`Content-Type: text/plain\r\nContent-Length: ${endpoint.length}\r\n\r\n${endpoint}`,
-			);
+			response(_200, textPlain(endpoint));
+		}
+	},
+	"/user-agent": ({ headers, response }) => {
+		const userAgent = headers["User-Agent"];
+		if (!userAgent) {
+			response(_404);
 			return;
 		}
+		response(_200, textPlain(userAgent));
 	},
 } as const;
 
