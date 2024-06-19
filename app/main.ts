@@ -46,6 +46,7 @@ const requestHandler: { [key: string]: (request: Request) => void } = {
 	"/files/.+": ({ path, response }) => {
 		console.log("Testing path:", path);
 		const filename = path.split("/")[2];
+		console.log("filename:", filename);
 		try {
 			if (filename) {
 				const fileContent = fs.readFileSync(filename).toString();
