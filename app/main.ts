@@ -1,4 +1,5 @@
-import * as net from "net";
+import * as net from "node:net";
+import fs from "node:fs";
 
 // You can use print statements as follows for debugging, they'll be visible when running tests.
 console.log("Logs from your program will appear here!");
@@ -41,6 +42,20 @@ const requestHandler: { [key: string]: (request: Request) => void } = {
 			return;
 		}
 		response(_200, textPlain(userAgent));
+	},
+	"/files/.+": ({ path, response }) => {
+		const filename = path.split("/")[2];
+		try {
+			if (filename) {
+				const fileContent = fs.readFileSync(filename).toString();
+				response(
+					_200,
+					`Content-Type: application/octet-stream\r\nContent-Length: ${fileContent}\r\n\r\n${fileContent}`,
+				);
+			}
+		} catch {
+			response(_404);
+		}
 	},
 } as const;
 
