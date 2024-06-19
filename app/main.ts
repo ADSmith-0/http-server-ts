@@ -5,12 +5,12 @@ import * as net from "net";
 console.log("Logs from your program will appear here!");
 
 const acceptedPaths = ["/", "/index.html", "/echo/?.*"] as const;
-const r200 = "HTTP/1.1 200 OK\r\n\r\n"
-const r404 = "HTTP/1.1 404 Not Found\r\n\r\n"
+const r200 = "HTTP/1.1 200 OK\r\n"
+const r404 = "HTTP/1.1 404 Not Found\r\n"
 // Uncomment this to pass the first stage
 const server = net.createServer((socket) => {
   const response = (res: string, body: string = ""): void => {
-    socket.write(res.concat(body));
+    socket.write(res.concat(body, "\r\n"));
     socket.end();
   };
   socket.on("data", (data) => {
