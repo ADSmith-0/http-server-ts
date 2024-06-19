@@ -56,7 +56,7 @@ const requestHandler: { [key: string]: (request: Request) => void } = {
 					.toString();
 				response(
 					_200,
-					`Content-Type: application/octet-stream\r\nContent-Length: ${fileContent}\r\n\r\n${fileContent}`,
+					`Content-Type: application/octet-stream\r\nContent-Length: ${fileContent.length}\r\n\r\n${fileContent}`,
 				);
 			}
 		} catch {
