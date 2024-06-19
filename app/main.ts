@@ -44,6 +44,7 @@ const requestHandler: { [key: string]: (request: Request) => void } = {
 		response(_200, textPlain(userAgent));
 	},
 	"/files/.+": ({ path, response }) => {
+		console.log("Testing path:", path);
 		const filename = path.split("/")[2];
 		try {
 			if (filename) {
