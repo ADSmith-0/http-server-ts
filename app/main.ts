@@ -29,7 +29,7 @@ const requestHandler: { [key: string]: (request: Request) => void } = {
 	"/index.html": ({ response }) => {
 		response(_200);
 	},
-	"/echo/?.*": ({ path, headers, response }) => {
+	"/echo/?.*": ({ path, response }) => {
 		const endpoint = path.split("/")[2];
 		if (endpoint) {
 			response(_200, textPlain(endpoint));
@@ -49,8 +49,11 @@ const requestHandler: { [key: string]: (request: Request) => void } = {
 		console.log("filename:", filename);
 		try {
 			if (filename) {
-				console.log(fs.readdirSync("."));
-				const fileContent = fs.readFileSync(`/${filename}`).toString();
+				const fileContent = fs
+					.readFileSync(
+						`/tmp/data/codecrafters.io/http-server-tester/${filename}`,
+					)
+					.toString();
 				response(
 					_200,
 					`Content-Type: application/octet-stream\r\nContent-Length: ${fileContent}\r\n\r\n${fileContent}`,
