@@ -73,7 +73,9 @@ const server = net.createServer((socket) => {
 			path,
 			httpVersion,
 			headers: Object.fromEntries(
-				headers.split("\r\n").map((header) => header.split(":")),
+				headers
+					.split("\r\n")
+					.map((header) => header.replace(" ", "").split(":")),
 			),
 			body: "",
 			response,
