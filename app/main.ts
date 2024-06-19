@@ -49,6 +49,7 @@ const requestHandler: { [key: string]: (request: Request) => void } = {
 		console.log("filename:", filename);
 		try {
 			if (filename) {
+				console.log(fs.readdirSync("."));
 				const fileContent = fs.readFileSync(`/${filename}`).toString();
 				response(
 					_200,
