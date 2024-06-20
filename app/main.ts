@@ -66,7 +66,7 @@ const requestHandler: { [key: string]: (request: Request) => void } = {
 				try {
 					if (body) {
 						fs.writeFileSync(filePath, body);
-						response(200);
+						response(201);
 					} else {
 						response(404);
 					}
