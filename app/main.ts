@@ -1,5 +1,5 @@
 import * as net from "node:net";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { argv } from "node:process";
 
 // You can use print statements as follows for debugging, they'll be visible when running tests.
@@ -44,22 +44,38 @@ const requestHandler: { [key: string]: (request: Request) => void } = {
 		}
 		response(_200, textPlain(userAgent));
 	},
-	"/files/.+": ({ path, response }) => {
+	"/files/.+": ({ method, path, body, response }) => {
 		const directoryFlagIndex = process.argv.indexOf("--directory");
 		const directory = process.argv[directoryFlagIndex + 1];
-		console.log("directoryFlagIndex:", directoryFlagIndex);
-		console.log("directory:", directory);
 		const filename = path.split("/")[2];
-		try {
-			if (filename) {
-				const fileContent = readFileSync(`${directory}/${filename}`).toString();
-				response(
-					_200,
-					`Content - Type: application / octet - stream\r\nContent - Length: ${fileContent.length}\r\n\r\n${fileContent}`,
-				);
+		if (method === "GET") {
+			try {
+				if (filename) {
+					const fileContent = readFileSync(
+						`${directory}/${filename}`,
+					).toString();
+					response(
+						_200,
+						`Content - Type: application / octet - stream\r\nContent - Length: ${fileContent.length}\r\n\r\n${fileContent}`,
+					);
+				}
+			} catch {
+				response(_404);
 			}
-		} catch {
-			response(_404);
+			return;
+		}
+		if (method === "POST") {
+			try {
+				if (filename && body) {
+					writeFileSync(`${directory}/${filename}`, body);
+					response(_200);
+				} else {
+					response(_404);
+				}
+			} catch {
+				response(_404);
+			}
+			return;
 		}
 	},
 } as const;
