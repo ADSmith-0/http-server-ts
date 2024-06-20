@@ -47,6 +47,8 @@ const requestHandler: { [key: string]: (request: Request) => void } = {
 	"/files/.+": ({ method, path, body, response }) => {
 		const directoryFlagIndex = process.argv.indexOf("--directory");
 		const directory = process.argv[directoryFlagIndex + 1];
+		console.log("directoryFlagIndex:", directoryFlagIndex);
+		console.log("directory:", directory);
 		const filename = path.split("/")[2];
 		if (method === "GET") {
 			try {
