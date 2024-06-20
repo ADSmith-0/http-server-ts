@@ -87,7 +87,7 @@ const server = net.createServer((socket) => {
 			201: "Created",
 			404: "Not Found",
 		};
-		socket.write(`HTTP/1.1 ${res} ${message[res]}`.concat(body, "\r\n"));
+		socket.write(`HTTP/1.1 ${res} ${message[res]}\r\n`.concat(body, "\r\n"));
 		socket.end();
 	};
 	socket.on("data", (data) => {
