@@ -1,11 +1,11 @@
+import fs from "node:fs";
 import * as net from "node:net";
-import { readFileSync, writeFileSync } from "node:fs";
-import { argv } from "node:process";
+import process from "node:process";
 
 // You can use print statements as follows for debugging, they'll be visible when running tests.
 console.log("Logs from your program will appear here!");
 
-type Response = (response: string, body?: string) => void;
+type Response = (response: 200 | 201 | 404, body?: string) => void;
 
 type Request = {
 	method: "GET" | "POST" | "PUT" | "PATCH";
@@ -16,94 +16,96 @@ type Request = {
 	response: Response;
 };
 
-const _200 = "HTTP/1.1 200 OK\r\n";
-// const _400 = "HTTP/1.1 400 Error\r\n";
-const _404 = "HTTP/1.1 404 Not Found\r\n";
-
 const textPlain = (content: string): string =>
 	`Content-Type: text/plain\r\nContent-Length: ${content.length}\r\n\r\n${content}`;
 
 const requestHandler: { [key: string]: (request: Request) => void } = {
 	"/": ({ response }) => {
-		response(_200);
+		response(200);
 	},
 	"/index.html": ({ response }) => {
-		response(_200);
+		response(200);
 	},
 	"/echo/?.*": ({ path, response }) => {
 		const endpoint = path.split("/")[2];
 		if (endpoint) {
-			response(_200, textPlain(endpoint));
+			response(200, textPlain(endpoint));
 		}
 	},
 	"/user-agent": ({ headers, response }) => {
 		const userAgent = headers["User-Agent"];
 		if (!userAgent) {
-			response(_404);
+			response(404);
 			return;
 		}
-		response(_200, textPlain(userAgent));
+		response(200, textPlain(userAgent));
 	},
 	"/files/.+": ({ method, path, body, response }) => {
 		const directoryFlagIndex = process.argv.indexOf("--directory");
 		const directory = process.argv[directoryFlagIndex + 1];
-		console.log("directoryFlagIndex:", directoryFlagIndex);
-		console.log("directory:", directory);
 		const filename = path.split("/")[2];
-		if (method === "GET") {
-			try {
-				if (filename) {
-					const fileContent = readFileSync(
-						`${directory}/${filename}`,
-					).toString();
-					response(
-						_200,
-						`Content - Type: application / octet - stream\r\nContent - Length: ${fileContent.length}\r\n\r\n${fileContent}`,
-					);
-				}
-			} catch {
-				response(_404);
-			}
+		if (!filename) {
+			response(404);
 			return;
 		}
-		if (method === "POST") {
-			try {
-				if (filename && body) {
-					writeFileSync(`${directory}/${filename}`, body);
-					response(_200);
-				} else {
-					response(_404);
+		const filePath = directory + filename;
+		switch (method) {
+			case "GET": {
+				try {
+					const fileContent = fs.readFileSync(filePath).toString();
+					response(
+						200,
+						`Content-Type: application/octet-stream\r\nContent-Length: ${fileContent.length}\r\n\r\n${fileContent}`,
+					);
+				} catch {
+					response(404);
 				}
-			} catch {
-				response(_404);
+				break;
 			}
-			return;
+			case "POST": {
+				try {
+					if (body) {
+						fs.writeFileSync(filePath, body);
+						response(200);
+					} else {
+						response(404);
+					}
+				} catch {
+					response(404);
+				}
+				break;
+			}
 		}
 	},
 } as const;
 
 // Uncomment this to pass the first stage
 const server = net.createServer((socket) => {
-	const response: Response = (res: string, body = ""): void => {
-		socket.write(res.concat(body, "\r\n"));
+	const response: Response = (res, body = ""): void => {
+		const message: Record<typeof res, string> = {
+			200: "OK",
+			201: "Created",
+			404: "Not Found",
+		};
+		socket.write(`HTTP/1.1 ${res} ${message[res]}`.concat(body, "\r\n"));
 		socket.end();
 	};
 	socket.on("data", (data) => {
 		const httpRequest = new TextDecoder().decode(data);
 		const regex =
-			/^(?<method>GET|POST|PUT|PATCH) (?<path>\S+) HTTP\/(?<httpVersion>\d\.\d)\r\n(?<headers>.*\r\n)\r\n$/gms.exec(
+			/^(?<method>GET|POST|PUT|PATCH) (?<path>\S+) HTTP\/(?<httpVersion>\d\.\d)\r\n(?<headers>.*\r\n)\r\n(?<body>.*)$/gms.exec(
 				httpRequest,
 			)?.groups;
 		if (!regex) {
-			response(_404);
+			response(404);
 			return;
 		}
-		const { method, path, httpVersion, headers } = regex;
+		const { method, path, httpVersion, headers, body } = regex;
 		const pathKey = Object.keys(requestHandler).find((handler) =>
-			new RegExp(`^ ${handler}$`).test(path),
+			new RegExp(`^${handler}$`).test(path),
 		);
 		if (!pathKey) {
-			response(_404);
+			response(404);
 			return;
 		}
 		requestHandler[pathKey]({
@@ -115,10 +117,10 @@ const server = net.createServer((socket) => {
 					.split("\r\n")
 					.map((header) => header.replace(" ", "").split(":")),
 			),
-			body: "",
+			body,
 			response,
 		});
-		response(_404);
+		response(404);
 	});
 	socket.on("close", () => {
 		socket.end();
