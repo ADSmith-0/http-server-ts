@@ -1,5 +1,6 @@
 import * as net from "node:net";
-import fs from "node:fs";
+import { readFileSync } from "node:fs";
+import { argv } from "node:process";
 
 // You can use print statements as follows for debugging, they'll be visible when running tests.
 console.log("Logs from your program will appear here!");
@@ -44,19 +45,15 @@ const requestHandler: { [key: string]: (request: Request) => void } = {
 		response(_200, textPlain(userAgent));
 	},
 	"/files/.+": ({ path, response }) => {
-		console.log("Testing path:", path);
+		const directoryFlagIndex = process.argv.indexOf("--directory");
+		const directory = process.argv[directoryFlagIndex + 1];
 		const filename = path.split("/")[2];
-		console.log("filename:", filename);
 		try {
 			if (filename) {
-				const fileContent = fs
-					.readFileSync(
-						`/tmp/data/codecrafters.io/http-server-tester/${filename}`,
-					)
-					.toString();
+				const fileContent = readFileSync(`${directory}/${filename}`).toString();
 				response(
 					_200,
-					`Content-Type: application/octet-stream\r\nContent-Length: ${fileContent.length}\r\n\r\n${fileContent}`,
+					`Content - Type: application / octet - stream\r\nContent - Length: ${fileContent.length}\r\n\r\n${fileContent}`,
 				);
 			}
 		} catch {
@@ -83,7 +80,7 @@ const server = net.createServer((socket) => {
 		}
 		const { method, path, httpVersion, headers } = regex;
 		const pathKey = Object.keys(requestHandler).find((handler) =>
-			new RegExp(`^${handler}$`).test(path),
+			new RegExp(`^ ${handler}$`).test(path),
 		);
 		if (!pathKey) {
 			response(_404);
