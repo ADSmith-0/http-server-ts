@@ -128,14 +128,16 @@ const server = net.createServer((socket) => {
 			Object.keys(headers).length > 0 ||
 			Object.keys(responseHeaders).length > 0
 		) {
-			responseHeader = Object.entries({ ...responseHeaders, ...headers })
-				.reduce((acc, [key, value]) => acc.concat(`${key}: ${value}\r\n`), "")
-				.concat("\r\n");
+			responseHeader = Object.entries({
+				...responseHeaders,
+				...headers,
+			}).reduce((acc, [key, value]) => acc.concat(`${key}: ${value}\r\n`), "");
 		}
 
 		socket.write(
 			`HTTP/1.1 ${res} ${message[res]}\r\n`.concat(
 				responseHeader,
+				"\r\n",
 				responseBody,
 			),
 		);
