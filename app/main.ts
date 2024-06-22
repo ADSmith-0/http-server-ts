@@ -120,7 +120,7 @@ const server = net.createServer((socket) => {
 				responseBody = gzipSync(body).toString();
 			}
 			responseHeaders["Content-Type"] = "text/plain";
-			responseHeaders["Content-Length"] = body.length.toString();
+			responseHeaders["Content-Length"] = responseBody.length.toString();
 		}
 
 		if (
