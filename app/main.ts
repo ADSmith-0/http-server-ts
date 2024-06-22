@@ -1,11 +1,16 @@
 import fs from "node:fs";
 import * as net from "node:net";
 import process from "node:process";
+import { gzipSync } from "node:zlib";
 
 // You can use print statements as follows for debugging, they'll be visible when running tests.
 console.log("Logs from your program will appear here!");
 
-type Response = (response: 200 | 201 | 404, body?: string) => void;
+type Response = (
+	response: 200 | 201 | 404 | 405 | 500,
+	headers?: { [key: string]: string },
+	body?: string,
+) => void;
 
 type Request = {
 	method: "GET" | "POST" | "PUT" | "PATCH";
@@ -16,20 +21,29 @@ type Request = {
 	response: Response;
 };
 
-const textPlain = (content: string): string =>
-	`Content-Type: text/plain\r\nContent-Length: ${content.length}\r\n\r\n${content}`;
+type Callback = (request: Request) => void;
+type Methods = Partial<Record<Request["method"], Callback>>;
 
-const requestHandler: { [key: string]: (request: Request) => void } = {
+const isCallback = (value: Callback | Methods): value is Callback =>
+	typeof value === "function";
+
+const requestHandler: {
+	[key: string]: Callback | Methods;
+} = {
 	"/": ({ response }) => {
 		response(200);
 	},
 	"/index.html": ({ response }) => {
 		response(200);
 	},
-	"/echo/?.*": ({ path, response }) => {
+	"/echo/.+": ({ path, headers, response }) => {
 		const endpoint = path.split("/")[2];
+		const responseHeaders = /\bgzip\b/.test(headers["Accept-Encoding"])
+			? { "Content-Encoding": "gzip" }
+			: undefined;
+
 		if (endpoint) {
-			response(200, textPlain(endpoint));
+			response(200, responseHeaders, endpoint);
 		}
 	},
 	"/user-agent": ({ headers, response }) => {
@@ -38,56 +52,93 @@ const requestHandler: { [key: string]: (request: Request) => void } = {
 			response(404);
 			return;
 		}
-		response(200, textPlain(userAgent));
+		response(200, undefined, userAgent);
 	},
-	"/files/.+": ({ method, path, body, response }) => {
-		const directoryFlagIndex = process.argv.indexOf("--directory");
-		const directory = process.argv[directoryFlagIndex + 1];
-		const filename = path.split("/")[2];
-		if (!filename) {
-			response(404);
-			return;
-		}
-		const filePath = directory + filename;
-		switch (method) {
-			case "GET": {
-				try {
-					const fileContent = fs.readFileSync(filePath).toString();
-					response(
-						200,
-						`Content-Type: application/octet-stream\r\nContent-Length: ${fileContent.length}\r\n\r\n${fileContent}`,
-					);
-				} catch {
+	"/files/.+": {
+		GET: ({ path, response }) => {
+			const directoryFlagIndex = process.argv.indexOf("--directory");
+			const directory = process.argv[directoryFlagIndex + 1];
+			const filename = path.split("/")[2];
+			if (!filename) {
+				response(404);
+				return;
+			}
+			const filePath = directory + filename;
+			try {
+				const fileContent = fs.readFileSync(filePath).toString();
+				response(
+					200,
+					{
+						"Content-Type": "application/octet-stream",
+					},
+					fileContent,
+				);
+			} catch {
+				response(500);
+			}
+		},
+		POST: ({ path, body, response }) => {
+			const directoryFlagIndex = process.argv.indexOf("--directory");
+			const directory = process.argv[directoryFlagIndex + 1];
+			const filename = path.split("/")[2];
+			if (!filename) {
+				response(404);
+				return;
+			}
+			const filePath = directory + filename;
+			try {
+				if (body) {
+					fs.writeFileSync(filePath, body);
+					response(201);
+				} else {
 					response(404);
 				}
-				break;
+			} catch {
+				response(500);
 			}
-			case "POST": {
-				try {
-					if (body) {
-						fs.writeFileSync(filePath, body);
-						response(201);
-					} else {
-						response(404);
-					}
-				} catch {
-					response(404);
-				}
-				break;
-			}
-		}
+		},
 	},
 } as const;
 
 // Uncomment this to pass the first stage
 const server = net.createServer((socket) => {
-	const response: Response = (res, body = ""): void => {
+	const response: Response = (res, headers = {}, body = undefined): void => {
 		const message: Record<typeof res, string> = {
 			200: "OK",
 			201: "Created",
 			404: "Not Found",
+			405: "Method Not Allowed",
+			500: "Internal Server Error",
 		};
-		socket.write(`HTTP/1.1 ${res} ${message[res]}\r\n`.concat(body, "\r\n"));
+
+		const responseHeaders: Record<string, string> = {};
+		let responseHeader = "";
+		let responseBody = body ?? "";
+
+		if (body) {
+			responseHeaders["Content-Type"] = "text/plain";
+			if (headers && /\bgzip\b/.test(headers["Content-Encoding"]) && body) {
+				responseBody = gzipSync(body).toString();
+			} else {
+				responseHeaders["Content-Length"] = body.length.toString();
+			}
+		}
+
+		if (
+			Object.keys(headers).length > 0 ||
+			Object.keys(responseHeaders).length > 0
+		) {
+			responseHeader = Object.entries({ ...responseHeaders, ...headers })
+				.reduce((acc, [key, value]) => acc.concat(`${key}: ${value}\r\n`), "")
+				.concat("\r\n");
+		}
+
+		socket.write(
+			`HTTP/1.1 ${res} ${message[res]}\r\n`.concat(
+				responseHeader,
+				responseBody,
+			),
+		);
 		socket.end();
 	};
 	socket.on("data", (data) => {
@@ -108,7 +159,7 @@ const server = net.createServer((socket) => {
 			response(404);
 			return;
 		}
-		requestHandler[pathKey]({
+		const requestObj = {
 			method: method as Request["method"],
 			path,
 			httpVersion,
@@ -119,7 +170,24 @@ const server = net.createServer((socket) => {
 			),
 			body,
 			response,
-		});
+		};
+
+		const endpoint = requestHandler[pathKey];
+
+		if (isCallback(endpoint)) {
+			if (method !== "GET") {
+				response(405);
+				return;
+			}
+			endpoint(requestObj);
+		} else {
+			const methodEndpoint = endpoint[method as keyof Methods];
+			if (methodEndpoint === undefined) {
+				response(405);
+				return;
+			}
+			methodEndpoint(requestObj);
+		}
 		response(404);
 	});
 	socket.on("close", () => {
