@@ -116,12 +116,11 @@ const server = net.createServer((socket) => {
 		let responseBody = body ?? "";
 
 		if (body) {
-			responseHeaders["Content-Type"] = "text/plain";
 			if (headers && /\bgzip\b/.test(headers["Content-Encoding"]) && body) {
 				responseBody = gzipSync(body).toString();
-			} else {
-				responseHeaders["Content-Length"] = body.length.toString();
 			}
+			responseHeaders["Content-Type"] = "text/plain";
+			responseHeaders["Content-Length"] = body.length.toString();
 		}
 
 		if (
