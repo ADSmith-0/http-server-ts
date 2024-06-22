@@ -74,7 +74,7 @@ const requestHandler: {
 					fileContent,
 				);
 			} catch {
-				response(500);
+				response(404);
 			}
 		},
 		POST: ({ path, body, response }) => {
