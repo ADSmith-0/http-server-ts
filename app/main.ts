@@ -117,9 +117,7 @@ const server = net.createServer((socket) => {
 
 		if (body) {
 			if (headers && /\bgzip\b/.test(headers["Content-Encoding"]) && body) {
-				responseBody = gzipSync(body).toString().concat("\r\n");
-				console.log("gunzipSync(responseBody):", gunzipSync(responseBody));
-				gunzipSync(responseBody);
+				responseBody = gzipSync(body).toString();
 			}
 			responseHeaders["Content-Type"] = "text/plain";
 			responseHeaders["Content-Length"] = responseBody.length.toString();
@@ -133,16 +131,23 @@ const server = net.createServer((socket) => {
 				...responseHeaders,
 				...headers,
 			}).reduce((acc, [key, value]) => acc.concat(`${key}: ${value}\r\n`), "");
-			console.log("responseHeader:", responseHeader);
 		}
 
-		socket.write(
-			`HTTP/1.1 ${res} ${message[res]}\r\n`.concat(
-				responseHeader,
-				"\r\n",
-				responseBody,
-			),
-		);
+		if (responseHeader.includes("Content-Encoding: gzip")) {
+			socket.write(
+				`HTTP/1.1 ${res} ${message[res]}\r\n`.concat(responseHeader, "\r\n"),
+			);
+			socket.write(responseBody);
+		} else {
+			socket.write(
+				`HTTP/1.1 ${res} ${message[res]}\r\n`.concat(
+					responseHeader,
+					"\r\n",
+					responseBody,
+				),
+			);
+		}
+
 		socket.end();
 	};
 	socket.on("data", (data) => {
