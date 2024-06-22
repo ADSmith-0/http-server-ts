@@ -131,6 +131,7 @@ const server = net.createServer((socket) => {
 				...responseHeaders,
 				...headers,
 			}).reduce((acc, [key, value]) => acc.concat(`${key}: ${value}\r\n`), "");
+			console.log("responseHeader:", responseHeader);
 		}
 
 		socket.write(
