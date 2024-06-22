@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import * as net from "node:net";
 import process from "node:process";
-import { gzipSync } from "node:zlib";
+import { gunzip, gunzipSync, gzipSync } from "node:zlib";
 
 // You can use print statements as follows for debugging, they'll be visible when running tests.
 console.log("Logs from your program will appear here!");
@@ -118,6 +118,8 @@ const server = net.createServer((socket) => {
 		if (body) {
 			if (headers && /\bgzip\b/.test(headers["Content-Encoding"]) && body) {
 				responseBody = gzipSync(body).toString().concat("\r\n");
+				console.log("gunzipSync(responseBody):", gunzipSync(responseBody));
+				gunzipSync(responseBody);
 			}
 			responseHeaders["Content-Type"] = "text/plain";
 			responseHeaders["Content-Length"] = responseBody.length.toString();
