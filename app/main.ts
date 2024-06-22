@@ -134,6 +134,7 @@ const server = net.createServer((socket) => {
 		}
 
 		if (responseHeader.includes("Content-Encoding: gzip")) {
+			console.log("HERE!");
 			socket.write(
 				`HTTP/1.1 ${res} ${message[res]}\r\n`.concat(responseHeader, "\r\n"),
 			);
