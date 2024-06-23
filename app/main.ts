@@ -113,14 +113,16 @@ const server = net.createServer((socket) => {
 
 		const responseHeaders: Record<string, string> = {};
 		let responseHeader = "";
-		let responseBody = body ?? "";
+		let gzippedBody: Buffer | undefined = undefined;
 
 		if (body) {
 			if (headers && /\bgzip\b/.test(headers["Content-Encoding"]) && body) {
-				responseBody = gzipSync(Buffer.from(body, "utf-8")).toString();
+				gzippedBody = gzipSync(Buffer.from(body, "utf-8"));
 			}
 			responseHeaders["Content-Type"] = "text/plain";
-			responseHeaders["Content-Length"] = responseBody.length.toString();
+			responseHeaders["Content-Length"] = (
+				gzippedBody?.length ?? body.length
+			).toString();
 		}
 
 		if (
@@ -133,13 +135,20 @@ const server = net.createServer((socket) => {
 			}).reduce((acc, [key, value]) => acc.concat(`${key}: ${value}\r\n`), "");
 		}
 
-		socket.write(
-			`HTTP/1.1 ${res} ${message[res]}\r\n`.concat(
-				responseHeader,
-				"\r\n",
-				responseBody,
-			),
-		);
+		if (gzippedBody) {
+			socket.write(
+				`HTTP/1.1 ${res} ${message[res]}\r\n`.concat(responseHeader, "\r\n"),
+			);
+			socket.write(gzippedBody);
+		} else {
+			socket.write(
+				`HTTP/1.1 ${res} ${message[res]}\r\n`.concat(
+					responseHeader,
+					"\r\n",
+					body ?? "",
+				),
+			);
+		}
 		socket.end();
 	};
 	socket.on("data", (data) => {
